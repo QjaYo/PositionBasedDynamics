@@ -1,0 +1,13 @@
+claude_htu.md
+imgui.ini
+
+생각흐름.md
+질문.md
+claude_how_to_use.md
+claude.md
+
+assets/
+.claude/
+.vscode/
+__pycache__/
+.DS_Store
