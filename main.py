@@ -11,7 +11,7 @@ from engine.solver import distance_projection, volume_projection, ConstraintSolv
 from engine.damping import damp_velocities
 from engine.picker import pick, mouse_ray
 
-ti.init(arch=ti.cuda)
+ti.init(arch=ti.gpu)
 
 # ── (1-3) 초기화 ──────────────────────────────────────────────────────────────
 positions, edges, rest_lengths, tet_elems, rest_volumes, surface_faces = \
