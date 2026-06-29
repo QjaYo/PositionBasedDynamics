@@ -3,21 +3,30 @@ import taichi as ti
 from engine.constraint import distance_constraint, volume_constraint, collision_constraint
 
 EPSILON_DIST = 1e-8
-EPSILON_VOL  = 1e-20
+EPSILON_VOL = 1e-20
 EPSILON_COLL = 1e-8
 
 
+@ti.func
+def _accumulate_constraint_correction(particles: ti.template(), idx: ti.i32, corr: ti.math.vec3):
+    ti.atomic_add(particles.dx_constraint[idx][0], corr[0])
+    ti.atomic_add(particles.dx_constraint[idx][1], corr[1])
+    ti.atomic_add(particles.dx_constraint[idx][2], corr[2])
+    ti.atomic_add(particles.constraint_count[idx], 1.0)
+
+
 @ti.kernel
-def distance_projection(
+def distance_projection_jacobi(
     particles: ti.template(),
     edges: ti.template(),
     rest_lengths: ti.template(),
-    stiffness: ti.f32
+    num_edges: ti.i32,
+    stiffness: ti.f32,
 ):
-    for i in edges:
+    for i in range(num_edges):
         idx0, idx1 = edges[i][0], edges[i][1]
-        w0 = particles.w[idx0]
-        w1 = particles.w[idx1]
+        w0 = particles.solver_w(idx0)
+        w1 = particles.solver_w(idx1)
         w_sum = w0 + w1
         if w_sum == 0.0:
             continue
@@ -31,29 +40,30 @@ def distance_projection(
             continue
 
         C, grad0, grad1 = distance_constraint(p0, p1, rest_lengths[i])
-
         denom = w0 * grad0.norm_sqr() + w1 * grad1.norm_sqr()
         if denom < EPSILON_DIST:
             continue
 
         s = C / denom
-        particles.x_pred[idx0] -= stiffness * s * w0 * grad0 / particles.n_dist_constraints[idx0]
-        particles.x_pred[idx1] -= stiffness * s * w1 * grad1 / particles.n_dist_constraints[idx1]
+        if w0 != 0.0:
+            _accumulate_constraint_correction(particles, idx0, -stiffness * s * w0 * grad0)
+        if w1 != 0.0:
+            _accumulate_constraint_correction(particles, idx1, -stiffness * s * w1 * grad1)
 
 
 @ti.kernel
-def volume_projection(
+def volume_projection_jacobi(
     particles: ti.template(),
     tet_elems: ti.template(),
     rest_volumes: ti.template(),
-    stiffness: ti.f32
+    stiffness: ti.f32,
 ):
     for i in tet_elems:
         idx0, idx1, idx2, idx3 = tet_elems[i][0], tet_elems[i][1], tet_elems[i][2], tet_elems[i][3]
-        w0 = particles.w[idx0]
-        w1 = particles.w[idx1]
-        w2 = particles.w[idx2]
-        w3 = particles.w[idx3]
+        w0 = particles.solver_w(idx0)
+        w1 = particles.solver_w(idx1)
+        w2 = particles.solver_w(idx2)
+        w3 = particles.solver_w(idx3)
 
         p0 = particles.x_pred[idx0]
         p1 = particles.x_pred[idx1]
@@ -61,24 +71,51 @@ def volume_projection(
         p3 = particles.x_pred[idx3]
         C, grad0, grad1, grad2, grad3 = volume_constraint(p0, p1, p2, p3, rest_volumes[i])
 
-        denom = (w0 * grad0.norm_sqr() + w1 * grad1.norm_sqr() +
-                 w2 * grad2.norm_sqr() + w3 * grad3.norm_sqr())
+        denom = (
+            w0 * grad0.norm_sqr()
+            + w1 * grad1.norm_sqr()
+            + w2 * grad2.norm_sqr()
+            + w3 * grad3.norm_sqr()
+        )
         if denom < EPSILON_VOL:
             continue
+
         s = C / denom
-        particles.x_pred[idx0] -= stiffness * s * w0 * grad0 / particles.n_vol_constraints[idx0]
-        particles.x_pred[idx1] -= stiffness * s * w1 * grad1 / particles.n_vol_constraints[idx1]
-        particles.x_pred[idx2] -= stiffness * s * w2 * grad2 / particles.n_vol_constraints[idx2]
-        particles.x_pred[idx3] -= stiffness * s * w3 * grad3 / particles.n_vol_constraints[idx3]
+        if w0 != 0.0:
+            _accumulate_constraint_correction(particles, idx0, -stiffness * s * w0 * grad0)
+        if w1 != 0.0:
+            _accumulate_constraint_correction(particles, idx1, -stiffness * s * w1 * grad1)
+        if w2 != 0.0:
+            _accumulate_constraint_correction(particles, idx2, -stiffness * s * w2 * grad2)
+        if w3 != 0.0:
+            _accumulate_constraint_correction(particles, idx3, -stiffness * s * w3 * grad3)
 
 
 @ti.kernel
-def collision_projection(particles: ti.template(), floor_y: ti.f32):
+def clear_jacobi_corrections(particles: ti.template()):
+    for i in particles.x_pred:
+        particles.dx_constraint[i] = ti.math.vec3(0.0, 0.0, 0.0)
+        particles.constraint_count[i] = 0.0
+
+
+@ti.kernel
+def apply_jacobi_corrections(particles: ti.template(), relaxation: ti.f32):
+    for i in particles.x_pred:
+        count = particles.constraint_count[i]
+        if count <= 0.0:
+            continue
+        if particles.solver_w(i) == 0.0:
+            continue
+        particles.x_pred[i] += relaxation * particles.dx_constraint[i]
+
+
+@ti.kernel
+def collision_projection(particles: ti.template(), floor_y: ti.f32, floor_v_y: ti.f32):
     for i in particles.x_pred:
         C, grad = collision_constraint(particles.x_pred[i], floor_y)
         if C >= 0.0:
             continue
-        w = particles.w[i]
+        w = particles.solver_w(i)
         if w == 0.0:
             continue
 
@@ -86,26 +123,39 @@ def collision_projection(particles: ti.template(), floor_y: ti.f32):
         if denom < EPSILON_COLL:
             continue
         s = C / denom
-        
-        correction = - s * w * grad
+
+        correction = -s * w * grad
         particles.x_pred[i] += correction
         particles.dx_coll[i] += correction
+        particles.coll_normal[i] += grad
+        particles.coll_surface_v[i] += ti.math.vec3(0.0, floor_v_y, 0.0)
+        particles.coll_count[i] += 1.0
 
 
-class ConstraintSolver:
-    def __init__(self):
-        self.internal_constraints = []
+class JacobiConstraintSolver:
+    def __init__(self, relaxation=1.0):
+        self.relaxation = float(relaxation)
+        self.jacobi_constraints = []
         self.collision_constraints = []
 
-    def register(self, fn, *args):
-        self.internal_constraints.append((fn, args))
+    def register_jacobi(self, fn, *args):
+        self.jacobi_constraints.append((fn, args))
 
-    def generate_collision_constraints(self, particles, floor_y: float):
-        self.collision_constraints = [(collision_projection, (particles, floor_y))]
+    def generate_collision_constraints(self, particles, floor_y: float, floor_v_y: float = 0.0):
+        self.collision_constraints = [(collision_projection, (particles, floor_y, float(floor_v_y)))]
 
     def solve(self, n_iter):
+        if not self.jacobi_constraints:
+            for _ in range(n_iter):
+                for fn, args in self.collision_constraints:
+                    fn(*args)
+            return
+
+        particles = self.jacobi_constraints[0][1][0]
         for _ in range(n_iter):
-            for fn, args in self.internal_constraints:
+            clear_jacobi_corrections(particles)
+            for fn, args in self.jacobi_constraints:
                 fn(*args)
+            apply_jacobi_corrections(particles, self.relaxation)
             for fn, args in self.collision_constraints:
                 fn(*args)

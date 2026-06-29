@@ -7,7 +7,10 @@ claude_how_to_use.md
 claude.md
 
 assets/
+outputs/
 .claude/
 .vscode/
+.codex
+.agents
 __pycache__/
 .DS_Store

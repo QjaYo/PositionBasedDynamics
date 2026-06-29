@@ -2,13 +2,6 @@ import numpy as np
 
 from utils import load_obj, tetrahedralize, build_edges
 
-FLOOR_Y = 0.0333
-
-# 바닥 들썩들썩 토글
-FLOOR_MOVE      = False
-FLOOR_AMPLITUDE = 0.05    # 진동 진폭 (m)
-FLOOR_FREQ      = 2.0     # 진동 주파수 (Hz)
-
 
 def create_scene(obj_path: str):
     """

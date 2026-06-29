@@ -2,7 +2,7 @@ import time
 import taichi as ti
 import numpy as np
 
-from scene import FLOOR_Y
+import simulation_config as sim_config
 
 
 class Renderer:
@@ -24,8 +24,11 @@ class Renderer:
         self.camera.up(0.0, 1.0, 0.0)
 
         # 표면 삼각형 인덱스를 Taichi field에 업로드
-        self.indices = ti.field(dtype=ti.i32, shape=len(surface_faces) * 3)
-        self.indices.from_numpy(surface_faces.flatten().astype(np.int32))
+        self.surface_faces = None
+        self.indices = None
+        self.marked_indices = None
+        self.marked_vertices = set()
+        self.set_surface_faces(surface_faces)
 
         # 바닥 메시 (사각형 평면, 삼각형 2개) — y는 set_floor_y로 갱신
         self._floor_xz = np.array([
@@ -39,7 +42,7 @@ class Renderer:
         self.floor_verts = ti.Vector.field(3, dtype=ti.f32, shape=4)
         self.floor_indices = ti.field(dtype=ti.i32, shape=6)
         self.floor_indices.from_numpy(floor_faces)
-        self.set_floor_y(FLOOR_Y)
+        self.set_floor_y(sim_config.FLOOR_Y)
 
     def set_floor_y(self, y: float):
         verts = np.empty((4, 3), dtype=np.float32)
@@ -47,6 +50,39 @@ class Renderer:
         verts[:, 1] = y
         verts[:, 2] = self._floor_xz[:, 1]
         self.floor_verts.from_numpy(verts)
+
+    def set_surface_faces(self, surface_faces):
+        self.surface_faces = np.asarray(surface_faces, dtype=np.int32)
+        self._update_mesh_indices()
+
+    def set_marked_vertices(self, marked_vertices):
+        self.marked_vertices = set(int(i) for i in marked_vertices)
+        self._update_mesh_indices()
+
+    def _make_index_field(self, faces):
+        if len(faces) == 0:
+            return None
+        flat_faces = faces.flatten().astype(np.int32)
+        indices = ti.field(dtype=ti.i32, shape=len(flat_faces))
+        indices.from_numpy(flat_faces)
+        return indices
+
+    def _update_mesh_indices(self):
+        self.indices = None
+        self.marked_indices = None
+        if self.surface_faces is None:
+            return
+
+        if not self.marked_vertices:
+            self.indices = self._make_index_field(self.surface_faces)
+            return
+
+        marked_mask = np.array(
+            [any(int(v) in self.marked_vertices for v in face) for face in self.surface_faces],
+            dtype=bool,
+        )
+        self.indices = self._make_index_field(self.surface_faces[~marked_mask])
+        self.marked_indices = self._make_index_field(self.surface_faces[marked_mask])
 
     def get_camera_state(self):
         return (np.array(self.camera.curr_position, dtype=np.float32),
@@ -77,7 +113,10 @@ class Renderer:
         self.scene.mesh(self.floor_verts, indices=self.floor_indices, color=(0.3, 0.3, 0.3))
 
         # 메시 렌더링
-        self.scene.mesh(self.particles.x, indices=self.indices, color=(0.5, 0.5, 0.5))
+        if self.indices is not None:
+            self.scene.mesh(self.particles.x, indices=self.indices, color=(0.5, 0.5, 0.5))
+        if self.marked_indices is not None:
+            self.scene.mesh(self.particles.x, indices=self.marked_indices, color=(1.0, 0.0, 0.0))
 
         # 좌상단 상태 GUI
         gui = self.window.get_gui()

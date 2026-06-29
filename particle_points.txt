@@ -1,0 +1,28 @@
+토끼귀1
+index: 804
+rest_position_after_tetgen: [-0.02493915, 0.17031135, -0.01132970]
+설명: 귀 중간 후보. y가 높은 귀 영역 중 하나의 중심부에 가까운 표면 particle.
+
+토끼귀2
+index: 1093
+rest_position_after_tetgen: [-0.06654665, 0.17171115, -0.04212777]
+설명: 다른 귀 중간 후보. y가 높은 두 번째 귀 영역 중심부에 가까운 표면 particle.
+
+토끼코
+index: 270
+rest_position_after_tetgen: [-0.09364421, 0.11789378, 0.01866208]
+설명: x가 가장 작은 코/얼굴 앞쪽 표면 덩어리의 중심 후보. 코 끝에 가까운 극단 후보는 index 1648.
+
+토끼 엉덩이
+index: 918
+rest_position_after_tetgen: [0.06059493, 0.06167721, 0.01559156]
+설명: x가 가장 큰 엉덩이/뒤쪽 표면 덩어리의 중심 후보. 극단 후보는 index 925.
+
+현재 offline_animation_export.py 고정 잡기 설정
+FIXED_ANCHOR_INDICES = (270, 918)
+PATCH_RADIUS = 0.015
+PULL_HORIZONTAL = True
+
+주의
+- 위 index는 create_scene("assets/bunny.obj") 이후 tetgen이 만든 positions 기준의 0-based particle index.
+- bunny mesh, tetgen 옵션, maxvolume 등이 바뀌면 index가 달라질 수 있음.

@@ -16,9 +16,10 @@ def damp_velocities(particles: ti.template(), k_damping: ti.f32):
     x_cm = ti.Vector([0.0, 0.0, 0.0])
     v_cm = ti.Vector([0.0, 0.0, 0.0])
     for i in range(n):
-        if particles.w[i] == 0.0:
+        w = particles.solver_w(i)
+        if w == 0.0:
             continue
-        m = 1.0 / particles.w[i]
+        m = 1.0 / w
         total_mass += m
         x_cm += particles.x[i] * m
         v_cm += particles.v[i] * m
@@ -28,9 +29,10 @@ def damp_velocities(particles: ti.template(), k_damping: ti.f32):
     # (3) L — 각운동량
     L = ti.Vector([0.0, 0.0, 0.0])
     for i in range(n):
-        if particles.w[i] == 0.0:
+        w = particles.solver_w(i)
+        if w == 0.0:
             continue
-        m = 1.0 / particles.w[i]
+        m = 1.0 / w
         r = particles.x[i] - x_cm
         L += r.cross(m * particles.v[i])
 
@@ -39,9 +41,10 @@ def damp_velocities(particles: ti.template(), k_damping: ti.f32):
                    [0.0, 0.0, 0.0],
                    [0.0, 0.0, 0.0]])
     for i in range(n):
-        if particles.w[i] == 0.0:
+        w = particles.solver_w(i)
+        if w == 0.0:
             continue
-        m = 1.0 / particles.w[i]
+        m = 1.0 / w
         r = particles.x[i] - x_cm
         # r̃ (skew-symmetric matrix)
         r_tilde = ti.Matrix([[ 0.0, -r.z,  r.y],
@@ -54,7 +57,7 @@ def damp_velocities(particles: ti.template(), k_damping: ti.f32):
 
     # (6-8) v_i = lerp(v_i, v_cm + ω × r_i, k_damping)
     for i in range(n):
-        if particles.w[i] == 0.0:
+        if particles.solver_w(i) == 0.0:
             continue
         r = particles.x[i] - x_cm
         v_rigid = v_cm + omega.cross(r)
