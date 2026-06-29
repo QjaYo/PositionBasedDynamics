@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from . import bunny_pull, pull_tearing, rollers, spot_pull
+from . import bunny_pull, cloth_box_bunny, cloth_common, cloth_cover_bunny, cloth_metal_drop, moving_bunny, pull_tearing, rollers, spot_pull
 
 
 _SCENARIOS = {
@@ -10,6 +10,10 @@ _SCENARIOS = {
     "spot_pull": spot_pull,
     "roller": rollers,
     "rollers": rollers,
+    "cloth_metal_drop": cloth_metal_drop,
+    "cloth_cover_bunny": cloth_cover_bunny,
+    "cloth_box_bunny": cloth_box_bunny,
+    "moving_bunny": moving_bunny,
 }
 _SCENARIO_CONFIG_OVERRIDES = {
     "pull_only": {
@@ -20,6 +24,7 @@ _SCENARIO_CONFIG_OVERRIDES = {
 _KIND_MODULES = {
     "pull": pull_tearing,
     "rollers": rollers,
+    "cloth": cloth_common,
 }
 
 
@@ -58,8 +63,15 @@ def _module_for_state(scenario_state):
         raise ValueError(f"Unsupported scenario state: {scenario_state['kind']}") from exc
 
 
-def prepare_scenario(config, positions, surface_faces, bbox_diag):
-    return _module_for_config(config).prepare(config, positions, surface_faces, bbox_diag)
+def prepare_scenario(config, scene_or_positions, surface_faces_or_bbox_diag, bbox_diag=None):
+    module = _module_for_config(config)
+    if hasattr(scene_or_positions, "positions"):
+        scene = scene_or_positions
+        bbox = surface_faces_or_bbox_diag if bbox_diag is None else bbox_diag
+        if getattr(module, "PREPARE_ACCEPTS_SCENE_DATA", False):
+            return module.prepare(config, scene, bbox)
+        return module.prepare(config, scene.positions, scene.surface_faces, bbox)
+    return module.prepare(config, scene_or_positions, surface_faces_or_bbox_diag, bbox_diag)
 
 
 def apply_scenario_frame(config, scenario_state, particles, frame):
@@ -74,6 +86,13 @@ def apply_scenario_substep(config, scenario_state, particles, dt, stage):
     fn = getattr(_module_for_state(scenario_state), "apply_substep", None)
     if fn is not None:
         return fn(config, scenario_state, particles, dt, stage)
+    return None
+
+
+def register_scenario_solver_constraints(config, scenario_state, particles, solver):
+    fn = getattr(_module_for_state(scenario_state), "register_solver_constraints", None)
+    if fn is not None:
+        return fn(config, scenario_state, particles, solver)
     return None
 
 

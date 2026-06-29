@@ -237,6 +237,7 @@ while renderer.is_running():
         # (7) 예측 위치
         predict_positions(particles, dt)
         
+        # tearing 구현
         if ENABLE_TEARING:
             old_num_edges = num_edges
             old_num_particles = particles.num_particles

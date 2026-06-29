@@ -81,6 +81,7 @@ class OfflineConfig:
     blend_path: str
     overwrite: bool
     scenario: str
+    scenario_options: dict
     enable_tearing: bool
     asset: str
     fixed_anchor_indices: tuple[int, int] | None
@@ -122,6 +123,7 @@ class OfflineConfig:
     jacobi_relaxation: float
     arch: str
     use_gravity: bool
+    gravity_scale: float
     damping: float
     floor_y: float
     mu_s: float
@@ -147,6 +149,7 @@ class OfflineConfig:
     camera_distance_scale: float
     camera_height_scale: float
     camera_side_scale: float
+    camera_orbit_degrees: float | None
     camera_lens: float
     camera_bounds_padding: float
     bunny_color: tuple[float, float, float, float]
@@ -199,6 +202,7 @@ def build_config(args=None):
         blend_path=blend_path,
         overwrite=OVERWRITE,
         scenario=scenario_name,
+        scenario_options=scenario_config,
         enable_tearing=bool(scenario_config.get("enable_tearing", False)),
         asset=scenario_config.get("asset", sim_config.ASSET),
         fixed_anchor_indices=scenario_config.get("fixed_anchor_indices"),
@@ -240,6 +244,7 @@ def build_config(args=None):
         jacobi_relaxation=float(scenario_config.get("jacobi_relaxation", JACOBI_RELAXATION)),
         arch=ARCH,
         use_gravity=bool(scenario_config.get("use_gravity", sim_config.USE_GRAVITY)),
+        gravity_scale=float(scenario_config.get("gravity_scale", 1.0)),
         damping=float(scenario_config.get("damping", sim_config.DAMPING)),
         floor_y=float(scenario_config.get("floor_y", sim_config.FLOOR_Y)),
         mu_s=float(scenario_config.get("mu_s", sim_config.MU_S)),
@@ -265,6 +270,7 @@ def build_config(args=None):
         camera_distance_scale=float(camera.get("distance_scale", 5.0)),
         camera_height_scale=float(camera.get("height_scale", 0.28)),
         camera_side_scale=float(camera.get("side_scale", 0.35)),
+        camera_orbit_degrees=None if camera.get("orbit_degrees") is None else float(camera.get("orbit_degrees")),
         camera_lens=float(camera.get("lens", 55)),
         camera_bounds_padding=float(camera.get("bounds_padding", 1.0)),
         bunny_color=BUNNY_COLOR,
@@ -276,7 +282,7 @@ def build_config(args=None):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the offline PBD animation pipeline.")
-    parser.add_argument("--scenario", choices=("bunny_pull", "spot_pull", "pull_tearing", "pull_only", "roller", "rollers"), help="Offline scenario to run.")
+    parser.add_argument("--scenario", choices=("bunny_pull", "spot_pull", "pull_tearing", "pull_only", "roller", "rollers", "cloth_metal_drop", "cloth_cover_bunny", "cloth_box_bunny", "moving_bunny"), help="Offline scenario to run.")
     parser.add_argument("--output", help="Output folder name under outputs/ unless --output-path is set.")
     parser.add_argument("--output-path", help="Explicit output directory path.")
     return parser.parse_args()
@@ -290,14 +296,23 @@ def main():
     print(f"[main-offline] scenario: {config.scenario}")
     print(f"[main-offline] output path: {config.output_path}")
 
+    # 1. 시뮬레이션: scenario 설정으로 PBD를 돌리고 OBJ frame sequence를 저장
     if RUN_SIMULATION:
         offline_animation_export.export_animation_sequence(config)
+
+    # 2. 마킹: anchor/특수 표시가 필요한 경우 별도 OBJ sequence 생성
     if RUN_MARKING:
         mark_animation_obj_sequence.mark_animation_obj_sequence(config)
+
+    # 3. 렌더링: OBJ sequence를 PNG frame과 MP4 영상으로 변환
     if RUN_VIDEO:
         render_animation_video.render_animation_video(config)
+
+    # 4. USD export: Blender/usdview에서 frame 단위로 볼 수 있는 scene export
     if RUN_USD:
         export_animation_usd.export_animation_usd(config)
+
+    # 5. Blender viewer export: 필요할 때만 .blend viewer 파일 생성
     if RUN_BLEND_VIEWER:
         export_animation_blend_viewer.export_animation_blend_viewer(config)
 

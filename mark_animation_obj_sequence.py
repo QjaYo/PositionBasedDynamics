@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 def write_material(path):
@@ -58,10 +59,17 @@ def mark_animation_obj_sequence(config):
 
     marked_vertices = set(int(i) for i in metadata.get("group_a", []))
     marked_vertices.update(int(i) for i in metadata.get("group_b", []))
-    if not marked_vertices:
-        print("[markers] no marked vertices in metadata; writing gray OBJ sequence")
 
     frame_paths = sorted(in_dir.glob("frame_*.obj"))
+    if not marked_vertices:
+        print("[markers] no marked vertices in metadata; preserving OBJ materials")
+        for i, src_path in enumerate(frame_paths):
+            shutil.copy2(src_path, out_dir / src_path.name)
+            if i % max(1, int(metadata.get("fps", 30))) == 0 or i == len(frame_paths) - 1:
+                print(f"[markers] {i + 1}/{len(frame_paths)}")
+        print(f"[markers] wrote {out_dir}")
+        return
+
     for i, src_path in enumerate(frame_paths):
         mark_frame(src_path, out_dir / src_path.name, material_name, marked_vertices)
         if i % max(1, int(metadata.get("fps", 30))) == 0 or i == len(frame_paths) - 1:

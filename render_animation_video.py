@@ -125,11 +125,21 @@ def setup_camera_and_lights(min_v, max_v):
     camera_data = bpy.data.cameras.new("Camera")
     camera = bpy.data.objects.new("Camera", camera_data)
     bpy.context.collection.objects.link(camera)
-    camera.location = center + Vector((
-        CONFIG.get("camera_side_scale", 0.35) * diagonal,
-        -CONFIG["camera_distance_scale"] * diagonal,
-        CONFIG["camera_height_scale"] * diagonal,
-    ))
+    orbit_degrees = CONFIG.get("camera_orbit_degrees")
+    if orbit_degrees is None:
+        camera.location = center + Vector((
+            CONFIG.get("camera_side_scale", 0.35) * diagonal,
+            -CONFIG["camera_distance_scale"] * diagonal,
+            CONFIG["camera_height_scale"] * diagonal,
+        ))
+    else:
+        angle = math.radians(float(orbit_degrees))
+        horizontal_distance = CONFIG["camera_distance_scale"] * diagonal
+        camera.location = center + Vector((
+            math.sin(angle) * horizontal_distance,
+            -math.cos(angle) * horizontal_distance,
+            CONFIG["camera_height_scale"] * diagonal,
+        ))
     camera.data.lens = CONFIG.get("camera_lens", 55)
     look_at(camera, center)
     bpy.context.scene.camera = camera
@@ -256,7 +266,7 @@ def set_roller_frame(rollers, frame):
         return
     t = frame / max(1, CONFIG["fps"])
     for obj in rollers:
-        obj.rotation_euler[1] = float(obj["roller_omega"]) * t
+        obj.rotation_euler[1] = -float(obj["roller_omega"]) * t
 
 
 def load_obj_mesh(path):
@@ -289,14 +299,22 @@ def load_obj_mesh(path):
     obj = bpy.data.objects.new(path.stem, mesh)
     bpy.context.collection.objects.link(obj)
 
-    gray = bpy.data.materials.get("bunny_gray") or make_material("bunny_gray", CONFIG["bunny_color"])
-    red = bpy.data.materials.get("pull_marker_red") or make_material("pull_marker_red", (1.0, 0.0, 0.0, 1.0))
-    mesh.materials.append(gray)
-    mesh.materials.append(red)
+    material_defs = {
+        "bunny_gray": CONFIG["bunny_color"],
+        "pull_marker_red": (1.0, 0.0, 0.0, 1.0),
+        "cloth_red": (0.50, 0.02, 0.04, 1.0),
+        "cloth_gold": (0.92, 0.63, 0.08, 1.0),
+        "metal_dark": (0.36, 0.36, 0.38, 1.0),
+    }
+    material_indices = {}
+    for name in sorted(set(face_materials) | {"bunny_gray"}):
+        mat = bpy.data.materials.get(name) or make_material(name, material_defs.get(name, CONFIG["bunny_color"]))
+        material_indices[name] = len(mesh.materials)
+        mesh.materials.append(mat)
 
     for poly, name in zip(mesh.polygons, face_materials):
-        poly.material_index = 1 if name == "pull_marker_red" else 0
-        poly.use_smooth = True
+        poly.material_index = material_indices.get(name, material_indices["bunny_gray"])
+        poly.use_smooth = name not in {"cloth_red", "cloth_gold", "metal_dark"}
 
     return obj
 
@@ -456,6 +474,7 @@ def render_preview_frame(config, frame):
         "camera_distance_scale": config.camera_distance_scale,
         "camera_height_scale": config.camera_height_scale,
         "camera_side_scale": config.camera_side_scale,
+        "camera_orbit_degrees": config.camera_orbit_degrees,
         "camera_lens": config.camera_lens,
         "camera_bounds_mode": config.camera_bounds_mode,
         "camera_target_mode": config.camera_target_mode,
@@ -511,6 +530,7 @@ def render_animation_video(config):
         "camera_distance_scale": config.camera_distance_scale,
         "camera_height_scale": config.camera_height_scale,
         "camera_side_scale": config.camera_side_scale,
+        "camera_orbit_degrees": config.camera_orbit_degrees,
         "camera_lens": config.camera_lens,
         "camera_bounds_mode": config.camera_bounds_mode,
         "camera_target_mode": config.camera_target_mode,

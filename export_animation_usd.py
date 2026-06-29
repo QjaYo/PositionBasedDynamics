@@ -157,6 +157,9 @@ def write_mesh_prim(
         "bunny_gray": GRAY,
         "pull_marker_red": RED,
         "floor_gray": FLOOR_GRAY,
+        "cloth_red": (0.50, 0.02, 0.04),
+        "cloth_gold": (0.92, 0.63, 0.08),
+        "metal_dark": (0.36, 0.36, 0.38),
     }
     if material_colors:
         default_colors.update(material_colors)
@@ -263,7 +266,7 @@ def write_usd_sequence(
     with output_usd.open("w", encoding="utf-8") as f:
         f.write("#usda 1.0\n")
         f.write("(\n")
-        f.write('    defaultPrim = "TearingSequence"\n')
+        f.write('    defaultPrim = "AnimationSequence"\n')
         f.write(f"    startTimeCode = {timeline_start}\n")
         f.write(f"    endTimeCode = {timeline_end}\n")
         f.write(f"    framesPerSecond = {int(fps)}\n")
@@ -271,7 +274,7 @@ def write_usd_sequence(
         f.write('    upAxis = "Z"\n')
         f.write("    metersPerUnit = 1\n")
         f.write(")\n\n")
-        f.write('def Xform "TearingSequence"\n')
+        f.write('def Xform "AnimationSequence"\n')
         f.write("{\n")
 
         if floor_y is not None:

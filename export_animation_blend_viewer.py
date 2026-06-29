@@ -318,12 +318,23 @@ def load_frame_object(path, frame_index, gray, red, collection):
     mesh = bpy.data.meshes.new(f"Frame_{frame_index:04d}Mesh")
     mesh.from_pydata([tuple(v) for v in vertices], [], faces)
     mesh.update()
-    mesh.materials.append(gray)
-    mesh.materials.append(red)
+
+    material_defs = {
+        "bunny_gray": CONFIG["bunny_color"],
+        "pull_marker_red": (1.0, 0.0, 0.0, 1.0),
+        "cloth_red": (0.50, 0.02, 0.04, 1.0),
+        "cloth_gold": (0.92, 0.63, 0.08, 1.0),
+        "metal_dark": (0.36, 0.36, 0.38, 1.0),
+    }
+    material_indices = {}
+    for material_name in sorted(set(face_materials) | {"bunny_gray"}):
+        mat = bpy.data.materials.get(material_name) or make_material(material_name, material_defs.get(material_name, CONFIG["bunny_color"]))
+        material_indices[material_name] = len(mesh.materials)
+        mesh.materials.append(mat)
 
     for poly, material_name in zip(mesh.polygons, face_materials):
-        poly.material_index = 1 if material_name == "pull_marker_red" else 0
-        poly.use_smooth = True
+        poly.material_index = material_indices.get(material_name, material_indices["bunny_gray"])
+        poly.use_smooth = material_name not in {"cloth_red", "cloth_gold", "metal_dark"}
 
     obj = bpy.data.objects.new(f"Frame_{frame_index:04d}", mesh)
     collection.objects.link(obj)
