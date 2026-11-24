@@ -15,6 +15,8 @@ _SCENARIOS = {
     "cloth_box_bunny": cloth_box_bunny,
     "moving_bunny": moving_bunny,
 }
+SCENARIO_NAMES = tuple(_SCENARIOS)
+
 _SCENARIO_CONFIG_OVERRIDES = {
     "pull_only": {
         "output": "bunny_pull_only",

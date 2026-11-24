@@ -37,14 +37,4 @@ SCENARIO_CONFIG = {
     "static_collision_k": 1.0,
     "static_collision_max_tris_per_cell": 512,
     "static_collision_neighbor_range": 1,
-    "camera": {
-        "bounds_mode": "all_frames",
-        "target_mode": "bunny",
-        "distance_scale": 2.8,
-        "height_scale": 0.28,
-        "side_scale": 0.0,
-        "orbit_degrees": -60.0,
-        "lens": 55,
-        "bounds_padding": 1.25,
-    },
 }

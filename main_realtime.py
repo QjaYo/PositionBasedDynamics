@@ -108,22 +108,28 @@ k_damping          = sim_config.DAMPING
 stiffness_distance = float(1.0 - (1.0 - k_distance) ** (1.0 / n_iter))
 stiffness_volume   = float(1.0 - (1.0 - k_volume)   ** (1.0 / n_iter))
 
-solver = JacobiConstraintSolver(relaxation=JACOBI_RELAXATION)
-solver.register_jacobi(
-    distance_projection_jacobi,
-    particles,
-    edges_field,
-    rest_lengths_field,
-    num_edges,
-    stiffness_distance,
-)
-solver.register_jacobi(
-    volume_projection_jacobi,
-    particles,
-    tet_elems_field,
-    rest_volumes_field,
-    stiffness_volume,
-)
+
+def make_solver(active_num_edges):
+    solver = JacobiConstraintSolver(relaxation=JACOBI_RELAXATION)
+    solver.register_jacobi(
+        distance_projection_jacobi,
+        particles,
+        edges_field,
+        rest_lengths_field,
+        active_num_edges,
+        stiffness_distance,
+    )
+    solver.register_jacobi(
+        volume_projection_jacobi,
+        particles,
+        tet_elems_field,
+        rest_volumes_field,
+        stiffness_volume,
+    )
+    return solver
+
+
+solver = make_solver(num_edges)
 
 renderer = Renderer(particles, surface_faces)
 
@@ -209,6 +215,7 @@ while renderer.is_running():
                  else f"Bunny patch ({len(drag['group'])})" if drag['kind'] == 'bunny'
                  else "Floor")
 
+    topology_changed = False
     for _ in range(n_substeps):
         # 초기화
         particles.dx_coll.fill(0.0)
@@ -255,9 +262,8 @@ while renderer.is_running():
                 edges_field.from_numpy(edges)
                 rest_lengths_field.from_numpy(rest_lengths)
                 tet_elems_field.from_numpy(tet_elems)
-                renderer.set_surface_faces(surface_faces)
-                if drag is not None and drag['kind'] == 'bunny':
-                    renderer.set_marked_vertices(drag['group'])
+                solver = make_solver(num_edges)
+                topology_changed = True
 
         # (8) 충돌 제약 생성
         solver.generate_collision_constraints(particles, floor_y, floor_v_y)
@@ -278,6 +284,11 @@ while renderer.is_running():
         apply_floor_friction(particles, mu_s, mu_k, dt)
 
         sim_t += dt
+
+    if topology_changed:
+        vertices = particles.x.to_numpy()[:particles.num_particles]
+        surface_faces = tearing.rebuild_surface_faces_from_tets(tet_elems, vertices)
+        renderer.set_surface_faces(surface_faces)
 
     renderer.set_floor_y(floor_y)
     renderer.render(sel_label, floor_move)

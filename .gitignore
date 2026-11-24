@@ -1,16 +1,24 @@
-claude_htu.md
-imgui.ini
-
-생각흐름.md
-질문.md
-claude_how_to_use.md
+# AI assistant instructions and settings
+AGENTS.md
+CLAUDE.md
 claude.md
-
-assets/
-outputs/
+claude_*.md
+.agents/
 .claude/
-.vscode/
-.codex
-.agents
+.codex/
+
+# Local editor settings and personal notes
+/.vscode/
+/생각흐름.md
+/질문.md
+
+/assets/*
+!/assets/bunny.obj
+
+/local/
+/outputs/
+/build/
+/imgui.ini
+
 __pycache__/
 .DS_Store

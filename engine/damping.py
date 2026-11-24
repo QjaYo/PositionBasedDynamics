@@ -1,15 +1,17 @@
 import taichi as ti
 
 
+def damp_velocities(particles, k_damping):
+    _damp_velocities(particles, k_damping, particles.num_particles)
+
+
 @ti.kernel
-def damp_velocities(particles: ti.template(), k_damping: ti.f32):
+def _damp_velocities(particles: ti.template(), k_damping: ti.f32, n: ti.i32):
     """
     논문 3.5절 dampVelocities
     강체 운동 성분은 보존하고 개별 진동(고주파)만 감쇠.
     v_i = lerp(v_i, v_cm + ω × r_i, k_damping)
     """
-    n = particles.num_particles
-
     # (1) x_cm, (2) v_cm — 질량중심 위치/속도
     # w_i = 1/m_i 이므로 m_i = 1/w_i, w_i=0이면 고정 파티클(무한 질량) → 제외
     total_mass = 0.0

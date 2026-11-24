@@ -25,13 +25,4 @@ SCENARIO_CONFIG = {
     "frames": 200,
     "fps": 30,
     "substeps": 10,
-    "camera": {
-        "bounds_mode": "first_frame",
-        "target_mode": "bunny",
-        "distance_scale": 5.0,
-        "height_scale": 0.28,
-        "side_scale": 0.35,
-        "lens": 55,
-        "bounds_padding": 1.0,
-    },
 }

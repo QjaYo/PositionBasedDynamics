@@ -35,13 +35,4 @@ SCENARIO_CONFIG = {
     "box_collision_margin": 0.002,
     "box_floor_restitution": 0.05,
     "collision_thickness": 0.003,
-    "camera": {
-        "bounds_mode": "all_frames",
-        "target_mode": "bunny",
-        "distance_scale": 4.0,
-        "height_scale": 0.30,
-        "side_scale": 0.38,
-        "lens": 55,
-        "bounds_padding": 1.35,
-    },
 }

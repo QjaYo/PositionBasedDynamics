@@ -5,7 +5,6 @@ import numpy as np
 import taichi as ti
 
 import engine.tearing as tearing
-import render_animation_video
 from engine.damping import damp_velocities
 from engine.friction import apply_floor_friction
 from engine.integrator import apply_external_forces, predict_positions, velocityUpdate
@@ -18,7 +17,7 @@ from engine.solver import (
     volume_projection_jacobi,
 )
 from scene import create_offline_scene
-from offline_scenarios import (
+from .scenarios import (
     apply_scenario_frame,
     apply_scenario_substep,
     clear_scenario,
@@ -102,11 +101,6 @@ def export_animation_sequence(config):
     ti.init(arch=ti.gpu if ARCH == "gpu" else ti.cpu)
 
     out_dir = Path(OUT_DIR)
-    preview_dir = Path(config.frame_preview_dir)
-    prepare_output_dir(out_dir, OVERWRITE)
-    if config.preview_during_simulation:
-        render_animation_video.prepare_png_dir(preview_dir, OVERWRITE)
-
     scene_data = create_offline_scene(config)
     bbox_positions = scene_data.positions.astype(np.float32)
     bbox_diag = float(np.linalg.norm(np.max(bbox_positions, axis=0) - np.min(bbox_positions, axis=0)))
@@ -199,8 +193,6 @@ def export_animation_sequence(config):
         "substeps": SUBSTEPS,
         "solver_iters": SOLVER_ITERS,
         "solver_mode": "jacobi",
-        "preview_during_simulation": bool(config.preview_during_simulation),
-        "preview_every": int(config.preview_every),
         "jacobi_relaxation": float(JACOBI_RELAXATION),
         "k_distance": float(K_DISTANCE),
         "k_volume": float(K_VOLUME),
@@ -219,11 +211,10 @@ def export_animation_sequence(config):
         "materials": sorted(set(face_materials)),
     }
     metadata.update(scenario_metadata(config, scenario_state))
+    prepare_output_dir(out_dir, OVERWRITE)
     (out_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
     print(f"[offline] output: {out_dir}")
-    if config.preview_during_simulation:
-        print(f"[offline] preview: every {config.preview_every} frames -> {preview_dir}")
     print(f"[offline] scenario: {config.scenario}")
     print(f"[offline] tearing: {'ON' if config.enable_tearing else 'OFF'}")
     for line in scenario_log_lines(config, scenario_state):
@@ -321,10 +312,6 @@ def export_animation_sequence(config):
             face_materials = [DEFAULT_MATERIAL] * len(surface_faces)
         write_obj(out_dir / f"frame_{frame:04d}.obj", vertices, surface_faces, face_materials)
 
-        # 긴 offline run 중간 확인용 preview frame 저장
-        if config.preview_during_simulation and config.preview_every > 0 and frame % config.preview_every == 0:
-            render_animation_video.render_preview_frame(config, frame)
-
         # 진행 상황 로그
         print(
             f"[offline] frame {frame + 1}/{FRAMES} "
@@ -337,13 +324,3 @@ def export_animation_sequence(config):
     tearing.tear_ratio = old_tear_ratio
     tearing.max_tears_per_call = old_max_tears
     print("[offline] done")
-
-
-def main():
-    from main_offline import build_config
-
-    export_animation_sequence(build_config())
-
-
-if __name__ == "__main__":
-    main()

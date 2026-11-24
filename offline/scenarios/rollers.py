@@ -35,21 +35,6 @@ SCENARIO_CONFIG = {
     "roller_align_bunny_face_to_center": False,
     "bunny_start_offset": (0.0, 0.0, 0.0),
     "bunny_initial_velocity": (0.0, 0.0, 0.0),
-    "roller_segments": 64,
-    "roller_stripe_count": 12,
-    "roller_stripe_twist": 3.0,
-    "roller_yellow": (1.0, 0.82, 0.05, 1.0),
-    "roller_black": (0.02, 0.02, 0.02, 1.0),
-    "render_rollers": True,
-    "camera": {
-        "bounds_mode": "first_frame",
-        "target_mode": "rollers",
-        "distance_scale": 1.17,
-        "height_scale": 0.0,
-        "side_scale": 0.0,
-        "lens": 55,
-        "bounds_padding": 2.5,
-    },
 }
 
 
